@@ -372,8 +372,26 @@ static stm32_err_t stm32_send_init_seq(const stm32_t *stm)
 		return STM32_ERR_UNKNOWN;
 	}
 	p_err = port->read(port, &byte, 1);
-	if (p_err == PORT_ERR_OK && byte == STM32_ACK)
-		return STM32_ERR_OK;
+	if (p_err == PORT_ERR_OK && byte == STM32_ACK){
+      // for stm32l412/422, bl sends a 2nd ack so let us look for it
+      p_err = port->read(port, &byte, 1);
+      if ( p_err == PORT_ERR_TIMEDOUT){
+         // default
+         return STM32_ERR_OK;
+      }
+      if ( p_err != PORT_ERR_OK){
+         fprintf(stderr,"Unexpected error reading 2nd byte in init\n");
+         return STM32_ERR_UNKNOWN;
+      }else{
+        if ( byte == STM32_ACK){
+            fprintf(stderr,"looks like a STM32L412/STM32L422\n");
+            return STM32_ERR_OK;
+        }else{
+           fprintf(stderr,"expected 2nd ack in init, got %d\n",(int)(byte));
+           return STM32_ERR_UNKNOWN;
+        }
+     }
+   }
 	if (p_err == PORT_ERR_OK && byte == STM32_NACK) {
 		/* We could get error later, but let's continue, for now. */
 		fprintf(stderr,
